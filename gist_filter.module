@@ -1,0 +1,85 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Provides the ability to embed gists from Github.
+ *
+ * This module provides an input filter to add a gist (from Github) anywhere
+ * input filters are accepted. You have the option of replacing the filter tag
+ * with a link to the gist or embedding the gist itself.
+ */
+
+/**
+ * Implementation of hook_filter().
+ */
+function gist_filter_filter($op, $delta = 0, $format = -1, $text = '', $cache_id = 0) {
+  switch ($op) {
+    
+    case 'list':
+      return array(t('Gist filter'));
+      
+    case 'description':
+      return t('Substitutes [gist:xx] tags with the gist located at http://gist.github.com/xx.');
+      
+    case 'settings': 
+      return _gist_filter_settings();
+      
+    case 'process':
+      $display = variable_get('gist_display_method', 'embed');
+      return preg_replace(
+        '@\[gist\:(\d+)\]@',
+        _gist_display('$1', $display),
+        $text
+      );
+
+    default:
+      return $text;
+      
+  }
+}
+
+/**
+ * The settings form for our gist filter.
+ */
+function _gist_filter_settings() {
+  $form['gist_filter'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Gist filter'),
+  );
+  $form['gist_filter']['gist_display_method'] = array(
+    '#title' => t('Gist display method'),
+    '#description' => t(''),
+    '#type' => 'select',
+    '#options' => array(
+      'embed' => t('Embed'),
+      'link' => t('Link'),
+    ),
+    '#default_value' => variable_get('gist_display_method', 'embed'),
+  );
+  return $form;
+}
+
+/**
+ * Implementation of hook_filter_tips().
+ */
+function gist_filter_filter_tips($delta, $format, $long = FALSE) {
+  $display = variable_get('gist_display_method', 'embed');
+  $action = $display == 'embed' ? 'embed the gist' : 'create a link to the gist';
+  return t('Use [gist:####] where #### is your gist number to %action.', array('%action' => $action));
+}
+
+/**
+ * Replace the text with our themed gist.
+ */
+function _gist_display($gist, $display) {
+  $url = 'http://gist.github.com/' . $gist;
+  switch ($display) {
+    
+    case 'embed':
+      return '<script src="' . $url . '.js"></script>';
+    case 'link':
+      return l($url, $url);
+      
+  }
+}
