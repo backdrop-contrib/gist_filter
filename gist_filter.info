@@ -1,4 +1,3 @@
-; $Id$
 name = Gist Input Filter
 description = "Provides the ability to embed gists from Github."
 
