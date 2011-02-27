@@ -2,7 +2,7 @@ name = Gist Input Filter
 description = "Provides the ability to embed gists from Github."
 
 ; Core version (required)
-core = 6.x
+core = 7.x
 
 ; Package name (see http://drupal.org/node/101009 for a list of names)
 package = Input filters
