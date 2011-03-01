@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Test class.
+ */
+class GistFilterTestCase extends DrupalWebTestCase {
+  protected $profile = 'testing';
+  protected $user;
+
+  public static function getInfo() {
+    'name' => t('Gist Filter Tests'),
+    'description' => t('Tests for the Gist Filter module.'),
+    'group' => t('Input filters'),
+  }
+
+  /**
+   * Setup stuff.
+   */
+  public function setUp() {
+    parent::setUp('gist_filter');
+    // Create and log in our user.
+    $this->user = $this->drupalCreateUser(array(
+      'create example content',
+    ));
+    $this->drupalLogin($this->user);
+  }
+  
+  /**
+   * Testing the embedded gist option.
+   */
+  function testEmbedStyle() {
+
+  }
+
+  /**
+   * Testing the link option. 
+   */
+  function testLinkStyle() {
+
+  }
+
+}
