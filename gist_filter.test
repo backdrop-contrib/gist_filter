@@ -6,11 +6,14 @@
 class GistFilterTestCase extends DrupalWebTestCase {
   protected $profile = 'testing';
   protected $user;
+  protected $contentType;
 
   public static function getInfo() {
-    'name' => t('Gist Filter Tests'),
-    'description' => t('Tests for the Gist Filter module.'),
-    'group' => t('Input filters'),
+    return array(
+      'name' => t('Gist Filter Tests'),
+      'description' => t('Tests for the Gist Filter module.'),
+      'group' => t('Input filters'),
+    );
   }
 
   /**
@@ -18,9 +21,14 @@ class GistFilterTestCase extends DrupalWebTestCase {
    */
   public function setUp() {
     parent::setUp('gist_filter');
+
+    // Create a content type to test the filters (with default format)
+    $this->contentType = $this->drupalCreateContentType();
+
     // Create and log in our user.
     $this->user = $this->drupalCreateUser(array(
-      'create example content',
+      'create ' . $this->contentType->type . ' content',
+      'administer filters',
     ));
     $this->drupalLogin($this->user);
   }
@@ -30,12 +38,47 @@ class GistFilterTestCase extends DrupalWebTestCase {
    */
   function testEmbedStyle() {
 
+    // Turn on our input filter and set the option to embed.
+    $edit = array(
+      'filters[gist_filter][status]' => 1,
+      'filters[gist_filter][settings][gist_filter_display_method]' => 'embed',
+    );
+    $this->drupalPost('admin/config/content/formats/plain_text', $edit, t('Save configuration'));
+
+    // Create a test node
+    $langcode = LANGUAGE_NONE;
+    $edit = array(
+      "title" => $this->randomName(),
+      "body[$langcode][0][value]" => 'Hello! [gist:788436]',
+    );
+    $result = $this->drupalPost('node/add/' . $this->contentType->type, $edit, t('Save'));
+    $this->assertResponse(200);
+    $this->assertRaw("Hello! ");
+    $this->assertRaw('<script src="http://gist.github.com/788436.js"></script>');
+
   }
 
   /**
    * Testing the link option. 
    */
   function testLinkStyle() {
+
+    // Turn on our input filter and set the option to link.
+    $edit = array(
+      'filters[gist_filter][status]' => 1,
+      'filters[gist_filter][settings][gist_filter_display_method]' => 'link',
+    );
+    $this->drupalPost('admin/config/content/formats/plain_text', $edit, t('Save configuration'));
+
+    // Create a test node
+    $langcode = LANGUAGE_NONE;
+    $edit = array(
+      "title" => $this->randomName(),
+      "body[$langcode][0][value]" => 'Hello! [gist:788436]',
+    );
+    $result = $this->drupalPost('node/add/' . $this->contentType->type, $edit, t('Save'));
+    $this->assertResponse(200);
+    $this->assertRaw('Hello! <a href="http://gist.github.com/788436">http://gist.github.com/788436</a>');
 
   }
 
