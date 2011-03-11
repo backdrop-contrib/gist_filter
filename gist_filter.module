@@ -33,9 +33,9 @@ function gist_filter_filter_info() {
  */
 function gist_filter_gist_filter_process($text, $filter, $format) {
   $display = $filter->settings['gist_filter_display_method'];
-  return preg_replace('@\[gist\:(\d+)\]@', _gist_display('$1', $display), $text);
+  $callback = '_gist_display_' . $display;
+  return preg_replace_callback('@\[gist\:(\d+)\:?(.*)?\]@', $callback, $text);
 }
-
 
 /**
  * Settings callback for gist_filter.
@@ -63,14 +63,19 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
 }
 
 /**
- * Replace the text with embedded script or link.
+ * Replace the text with embedded script.
  */
-function _gist_display($gist, $display) {
-  $url = 'http://gist.github.com/' . $gist;
-  switch ($display) {
-    case 'embed':
-      return '<script src="' . $url . '.js"></script>';
-    case 'link':
-      return l($url, $url);
-  }
+function _gist_display_embed($matches) {
+  $gist_url = 'http://gist.github.com/' . $matches[1];
+  $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '.js?file=' . $matches[2] : $gist_url . '.js';
+  return '<script src="' . $gist_url . '"></script>';
+}
+
+/**
+ * Replace the text with a link.
+ */
+function _gist_display_link($matches) {
+  $gist_url = 'http://gist.github.com/' . $matches[1];
+  $gist_url = isset($matches[2]) && !empty($matches[2])? $gist_url . '#file_' . $matches[2] : $gist_url;
+  return l($gist_url, $gist_url);
 }

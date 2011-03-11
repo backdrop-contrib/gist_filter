@@ -59,6 +59,31 @@ class GistFilterTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Testing the embedded gist option with a file parameter.
+   */
+  function testEmbedStyleWithFile() {
+
+    // Turn on our input filter and set the option to embed.
+    $edit = array(
+      'filters[gist_filter][status]' => 1,
+      'filters[gist_filter][settings][gist_filter_display_method]' => 'embed',
+    );
+    $this->drupalPost('admin/config/content/formats/plain_text', $edit, t('Save configuration'));
+
+    // Create a test node
+    $langcode = LANGUAGE_NONE;
+    $edit = array(
+      "title" => $this->randomName(),
+      "body[$langcode][0][value]" => 'Hello! [gist:865412:php_file.php]',
+    );
+    $result = $this->drupalPost('node/add/' . $this->contentType->type, $edit, t('Save'));
+    $this->assertResponse(200);
+    $this->assertRaw("Hello! ");
+    $this->assertRaw('<script src="http://gist.github.com/865412.js?file=php_file.php"></script>');
+
+  }
+
+  /**
    * Testing the link option. 
    */
   function testLinkStyle() {
@@ -79,6 +104,30 @@ class GistFilterTestCase extends DrupalWebTestCase {
     $result = $this->drupalPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
     $this->assertRaw('Hello! <a href="http://gist.github.com/788436">http://gist.github.com/788436</a>');
+
+  }
+
+  /**
+   * Testing the link option. 
+   */
+  function testLinkStyleWithFile() {
+
+    // Turn on our input filter and set the option to link.
+    $edit = array(
+      'filters[gist_filter][status]' => 1,
+      'filters[gist_filter][settings][gist_filter_display_method]' => 'link',
+    );
+    $this->drupalPost('admin/config/content/formats/plain_text', $edit, t('Save configuration'));
+
+    // Create a test node
+    $langcode = LANGUAGE_NONE;
+    $edit = array(
+      "title" => $this->randomName(),
+      "body[$langcode][0][value]" => 'Hello! [gist:865412:php_file.php]',
+    );
+    $result = $this->drupalPost('node/add/' . $this->contentType->type, $edit, t('Save'));
+    $this->assertResponse(200);
+    $this->assertRaw('Hello! <a href="http://gist.github.com/865412#file_php_file.php">http://gist.github.com/865412#file_php_file.php</a>');
 
   }
 
