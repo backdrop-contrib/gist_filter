@@ -9,6 +9,16 @@
  * with a link to the gist or embedding the gist itself.
  */
 
+/**
+ * Implementation of hook_theme().
+ */
+function gist_filter_theme() {
+  return array(
+    'gist_filter_code' => array(
+      'variables' => array('file' => array()),
+    ),
+  );
+}
 
 /**
  * Implementation of hook_filter_info().
@@ -45,6 +55,7 @@ function gist_filter_gist_filter_settings($form, $form_state, $filter, $format, 
     '#title' => t('Gist display method'),
     '#type' => 'select',
     '#options' => array(
+      'code' => t('Code tags'),
       'embed' => t('Embed'),
       'link' => t('Link'),
     ),
@@ -60,6 +71,44 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
   $display = $filter->settings['gist_filter_display_method'];
   $action = $display == 'embed' ? t('embed the gist') : t('create a link to the gist');
   return t('Use [gist:####] where #### is your gist number to %action.', array('%action' => $action));
+}
+
+/**
+ * Theme function to render the contents of a gist file in <code> tags.
+ */
+function theme_gist_filter_code($vars) {
+  $file = $vars['file'];
+
+  return '<div class="github-file"><code>' . check_plain($file['content']) . '</code></div>';
+}
+
+/**
+ * Replace the text with the content of the Gist, wrapped in <code> tags.
+ */
+function _gist_display_code($matches) {
+  // Get the Gist from the Github API.
+  $url = 'https://api.github.com/gists/' . $matches[1];
+  $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
+  $data = drupal_json_decode($response->data);
+
+  $output = '';
+
+  // If a file was specified, just render that one file.
+  if (isset($matches[2]) && !empty($matches[2]) && isset($data['files'][$matches[2]])) {
+    $output = theme('gist_filter_code', array(
+      'file' => $data['files'][$matches[2]],
+    ));
+  }
+  // Otherwise, render all files.
+  else {
+    foreach ($data['files'] as $file) {
+      $output .= theme('gist_filter_code', array(
+        'file' => $file,
+      ));
+    }
+  }
+
+  return $output;
 }
 
 /**
