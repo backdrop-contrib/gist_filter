@@ -79,7 +79,7 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
 function theme_gist_filter_code($vars) {
   $file = $vars['file'];
 
-  return '<div class="drupal-gist-file"><pre type="' . strtolower($file['language']) . '">' . check_plain($file['content']) . '</pre></div>';
+  return '<div class="drupal-gist-file"><pre type="' . drupal_strtolower($file['language']) . '">' . check_plain($file['content']) . '</pre></div>';
 }
 
 /**
@@ -119,7 +119,6 @@ function _gist_display_embed($matches) {
   $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '.js?file=' . $matches[2] : $gist_url . '.js';
 
   // Also grab the content and display it in code tags (in case the user does not have JS).
-  // TODO: 1. there is some caching going on here. 2. this is expensive.
   $output = '<noscript>' . _gist_display_code($matches) . '</noscript>';
 
   $output .= '<script src="' . $gist_url . '"></script>';
@@ -153,7 +152,7 @@ function gist_filter_get_gist($id) {
     $cid = 'gist_filter:gist:' . $id;
     // Check if this gist is already in the cache
     $gist = cache_get($cid);
-    
+
     if ($cached = cache_get($cid)) {
       $gist = $cached->data;
     }
@@ -162,7 +161,7 @@ function gist_filter_get_gist($id) {
       $url = 'https://api.github.com/gists/' . $id;
       $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
       $gist = drupal_json_decode($response->data);
-      
+
       // Cache the gist until the next cache flush
       cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
     }

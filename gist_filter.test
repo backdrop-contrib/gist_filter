@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Gist Filter module.
+ */
+
+/**
  * Test class.
  */
 class GistFilterTestCase extends DrupalWebTestCase {
