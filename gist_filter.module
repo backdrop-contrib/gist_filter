@@ -87,9 +87,7 @@ function theme_gist_filter_code($vars) {
  */
 function _gist_display_code($matches) {
   // Get the Gist from the Github API.
-  $url = 'https://api.github.com/gists/' . $matches[1];
-  $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
-  $data = drupal_json_decode($response->data);
+  $data = gist_filter_get_gist($matches[1]);
 
   $output = '';
 
@@ -120,10 +118,8 @@ function _gist_display_embed($matches) {
 
   // Also grab the content and display it in code tags (in case the user does not have JS).
   // TODO: 1. there is some caching going on here. 2. this is expensive.
-  drupal_add_js(drupal_get_path('module', 'gist_filter') . '/js/gist-filter-hide-code.js');
-  $code = _gist_display_code($matches);
+  $output = '<noscript>' . _gist_display_code($matches) . '</noscript>';
 
-  $output = $code;
   $output .= '<script src="' . $gist_url . '"></script>';
   return $output;
 }
@@ -135,4 +131,25 @@ function _gist_display_link($matches) {
   $gist_url = 'http://gist.github.com/' . $matches[1];
   $gist_url = isset($matches[2]) && !empty($matches[2])? $gist_url . '#file_' . $matches[2] : $gist_url;
   return l($gist_url, $gist_url);
+}
+
+/**
+ * Helper function to retrieve a Gist from the Github API.
+ *
+ * @param $id
+ *   The ID of the Gist to grab.
+ *
+ * @return array
+ *   The data from the Github API.
+ */
+function gist_filter_get_gist($id) {
+  static $gists = array();
+
+  if (!isset($gists[$id])) {
+    $url = 'https://api.github.com/gists/' . $id;
+    $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
+    $gists[$id] = drupal_json_decode($response->data);
+  }
+
+  return $gists[$id];
 }
