@@ -99,8 +99,6 @@ function _gist_display_code($matches) {
   }
   // Otherwise, render all files.
   else {
-    module_load_include('php', 'devel', 'krumo/class.krumo');
-    krumo($data);
     foreach ($data['files'] as $file) {
       $output .= theme('gist_filter_code', array(
         'file' => $file,
