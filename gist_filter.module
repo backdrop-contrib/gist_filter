@@ -143,13 +143,20 @@ function _gist_display_link($matches) {
  *   The data from the Github API.
  */
 function gist_filter_get_gist($id) {
-  static $gists = array();
-
-  if (!isset($gists[$id])) {
+  // Cache ID
+  $cid = 'gist:' . $id;
+  // Check if this gist is already in the cache
+  $gist = cache_get($cid);
+  
+  if (!$gist) {
+    // Not available in the cache, so retrive the gist from Github
     $url = 'https://api.github.com/gists/' . $id;
     $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
-    $gists[$id] = drupal_json_decode($response->data);
+    $gist = drupal_json_decode($response->data);
+    
+    // Cache the gist until the next cache flush
+    cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
   }
 
-  return $gists[$id];
+  return $gist;
 }
