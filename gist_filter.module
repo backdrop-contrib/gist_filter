@@ -79,7 +79,7 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
 function theme_gist_filter_code($vars) {
   $file = $vars['file'];
 
-  return '<div class="github-file"><code>' . check_plain($file['content']) . '</code></div>';
+  return '<div class="drupal-gist-file"><pre type="' . strtolower($file['language']) . '">' . check_plain($file['content']) . '</pre></div>';
 }
 
 /**
@@ -117,7 +117,15 @@ function _gist_display_code($matches) {
 function _gist_display_embed($matches) {
   $gist_url = 'http://gist.github.com/' . $matches[1];
   $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '.js?file=' . $matches[2] : $gist_url . '.js';
-  return '<script src="' . $gist_url . '"></script>';
+
+  // Also grab the content and display it in code tags (in case the user does not have JS).
+  // TODO: 1. there is some caching going on here. 2. this is expensive.
+  drupal_add_js(drupal_get_path('module', 'gist_filter') . '/js/gist-filter-hide-code.js');
+  $code = _gist_display_code($matches);
+
+  $output = $code;
+  $output .= '<script src="' . $gist_url . '"></script>';
+  return $output;
 }
 
 /**
