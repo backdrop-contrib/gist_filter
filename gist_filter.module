@@ -99,6 +99,8 @@ function _gist_display_code($matches) {
   }
   // Otherwise, render all files.
   else {
+    module_load_include('php', 'devel', 'krumo/class.krumo');
+    krumo($data);
     foreach ($data['files'] as $file) {
       $output .= theme('gist_filter_code', array(
         'file' => $file,
@@ -143,20 +145,30 @@ function _gist_display_link($matches) {
  *   The data from the Github API.
  */
 function gist_filter_get_gist($id) {
-  // Cache ID
-  $cid = 'gist:' . $id;
-  // Check if this gist is already in the cache
-  $gist = cache_get($cid);
-  
-  if (!$gist) {
-    // Not available in the cache, so retrive the gist from Github
-    $url = 'https://api.github.com/gists/' . $id;
-    $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
-    $gist = drupal_json_decode($response->data);
+  static $gists = array();
+
+  // First, try the static cache.
+  if (!isset($gists[$id])) {
+    // Cache ID
+    $cid = 'gist_filter:gist:' . $id;
+    // Check if this gist is already in the cache
+    $gist = cache_get($cid);
     
-    // Cache the gist until the next cache flush
-    cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
+    if ($cached = cache_get($cid)) {
+      $gist = $cached->data;
+    }
+    else {
+      // Not available in the cache, so retrive the gist from Github
+      $url = 'https://api.github.com/gists/' . $id;
+      $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
+      $gist = drupal_json_decode($response->data);
+      
+      // Cache the gist until the next cache flush
+      cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
+    }
+
+    $gists[$id] = $gist;
   }
 
-  return $gist;
+  return $gists[$id];
 }
