@@ -44,7 +44,7 @@ function gist_filter_filter_info() {
 function gist_filter_gist_filter_process($text, $filter, $format) {
   $display = $filter->settings['gist_filter_display_method'];
   $callback = '_gist_display_' . $display;
-  return preg_replace_callback('@\[gist\:(\d+)\:?(.*)?\]@', $callback, $text);
+  return preg_replace_callback('@\[gist\:(\d+)\:?([^\]])+?\]@', $callback, $text);
 }
 
 /**
