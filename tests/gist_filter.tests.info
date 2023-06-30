@@ -1,0 +1,5 @@
+[GistFilterTestCase]
+name = Gist Filter Tests
+description = Tests for Gist Filter module
+group = Filter
+file = gist_filter.test

@@ -1,11 +1,10 @@
 name = Gist Input Filter
-description = "Provides the ability to embed gists from Github."
+description = Adds a filter to embed Gists from GitHub anywhere in your text.
+backdrop = 1.x
+type = module
 
-; Core version (required)
-core = 7.x
-
-; Package name (see http://drupal.org/node/101009 for a list of names)
 package = Input filters
+tags[] = Filters
+tags[] = Content
 
-; Additional files
 files[] = gist_filter.test

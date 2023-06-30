@@ -1,16 +1,57 @@
 <?php
-
 /**
  * @file
  * Provides the ability to embed gists from Github.
  *
  * This module provides an input filter to add a gist (from Github) anywhere
  * input filters are accepted. You have the option of replacing the filter tag
- * with a link to the gist or embedding the gist itself.
+ * with a link to the gist, displaying the gist inside <code> tags or embedding
+ * the gist itself.
  */
 
+ /**
+ * Implements hook_menu().
+ *
+ */
+function gist_filter_menu() {
+  $items = array();
+  $items['admin/config/content/gist-filter'] = array(
+    'title' => 'Gist Filter settings',
+    'description' => 'Enter global settings for the Gist Filter module',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('gist_filter_config_form'),
+    'access arguments' => array('administer gist filter'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
 /**
- * Implementation of hook_theme().
+ * Implements hook_permission().
+ */
+function gist_filter_permission() {
+  return array(
+    'administer gist filter' => array(
+      'title' => t('Administer Gist Filter global settings'),
+      'description' => t('Configure global settings for Gist Filter, like authentication token and embed theme.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_config_info().
+ */
+function gist_filter_config_info() {
+  return array(
+    'gist_filter.settings' => array(
+      'label' => t('Gist Filter global settings'),
+      'group' => t('Configuration'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
  */
 function gist_filter_theme() {
   return array(
@@ -21,13 +62,13 @@ function gist_filter_theme() {
 }
 
 /**
- * Implementation of hook_filter_info().
+ * Implements hook_filter_info().
  */
 function gist_filter_filter_info() {
   $filters['gist_filter'] = array(
     'title' => t('Gist filter (Github Gists)'),
-    'description' => t('Substitutes [gist:xx] tags with the gist located at http://gist.github.com/xx.'),
-    'process callback'  => 'gist_filter_gist_filter_process',
+    'description' => t('Substitutes [gist:xx] tags with the gist located at https://gist.github.com/user/xx.'),
+    'process callback' => 'gist_filter_gist_filter_process',
     'default settings' => array(
       'gist_filter_display_method' => 'embed',
     ),
@@ -42,17 +83,109 @@ function gist_filter_filter_info() {
  * Process callback for hook_filter_info().
  */
 function gist_filter_gist_filter_process($text, $filter, $format) {
+  // Get the default display method for the text format.
   $display = $filter->settings['gist_filter_display_method'];
   $callback = '_gist_display_' . $display;
-  return preg_replace_callback('@\[gist\:(\d+)\:?([^\]])+?\]@', $callback, $text);
+
+  // If 'embed' is set in the token, override the default display method.
+  if (preg_match('@\[gistembed\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $text)) {
+    $callback = '_gist_display_embed';
+    return preg_replace_callback('@\[gistembed\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $callback, $text);
+  }
+
+  // If 'code' is set in the token, override the default display method.
+  if (preg_match('@\[gistcode\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $text)) {
+    $callback = '_gist_display_code';
+    return preg_replace_callback('@\[gistcode\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $callback, $text);
+  }
+
+  // If 'link' is set in the token, override the default display method.
+  if (preg_match('@\[gistlink\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $text)) {
+    $callback = '_gist_display_link';
+    return preg_replace_callback('@\[gistlink\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $callback, $text);
+  }
+
+  // Otherwise use the default display method for the text format.
+  return preg_replace_callback('@\[gist\:(?<id>[\w/]+)(?:\:(?<file>[\w\.]+))?\]@', $callback, $text);
+}
+
+ /**
+ * Settings callback for gist_filter_config_form
+ */
+function gist_filter_config_form($form, &$form_state) {
+  $form = array();
+  $form['#config'] = 'gist_filter.settings';
+
+  // Container for 'code' display settings.
+  $form['code'] = array(
+    '#type' => 'details',
+    '#summary' => t('Code'),
+    '#open' => TRUE,
+  );
+
+  // Prepare description for GitHub token field.
+  $description = array(
+    '<p>' . t("Each time a gist is retrieved to display as 'code' (rather than 'link' or 'embed'), GitHub counts this towards your limit. Anonymous users get 60 per hour; authenticated users get 5,000 per hour and Enterprise users get 15,000 per hour.")  . '</p>',
+    '<p>' . t("If you have a lot of gists displayed as 'code', then each time the page cache expires all the gists will be retrieved at once so you could easily hit the limit without a token.")  . '</p>',
+    '<p>' . t("If you don't already have a token, you will need to go to <a href='@github-tokens' target='_blank'>your GitHub tokens page</a> and create a token.", array(
+      '@github-tokens' => 'https://github.com/settings/tokens',
+    )) . '</p>',
+  );
+  $description = implode('', $description);
+
+  // GitHub Authentication token.
+  $form['code']['github_token'] = array(
+    '#type' => 'textfield',
+    '#title' => 'GitHub Personal Access Token',
+    '#default_value' => config_get('gist_filter.settings', 'github_token', ''),
+    '#description' => $description,
+  );
+
+  // Container for 'embed' display settings.
+  $form['embed'] = array(
+    '#type' => 'details',
+    '#summary' => t('Embed'),
+    '#open' => TRUE,
+  );
+
+  // Define the list of themes.
+  $gist_themes = array(
+    'default' => 'Default',
+    'chaos' => 'Chaos',
+    'cobalt' => 'Cobalt',
+    'idle-fingers' => 'Idle Fingers',
+    'monokai' => 'Monokai',
+    'obsidian' => 'Obsidian',
+    'one-dark' => 'One Dark',
+    'pastel-on-dark' => 'Pastel On Dark',
+    'solarized-dark' => 'Solarized Dark',
+    'solarized-light' => 'Solarized Light',
+    'terminal' => 'Terminal',
+    'tomorrow-night' => 'Tomorrow Night',
+    'twilight' => 'Twilight',
+  );
+
+  // Select the theme for the embed window.
+  $form['embed']['gist_embed_theme'] = array(
+    '#type' => 'select',
+    '#title' => 'Gist Embed Theme',
+    '#options' => $gist_themes,
+    '#default_value' => config_get('gist_filter.settings', 'gist_embed_theme'),
+    '#description' => t("Themes are from <a href='@developer'>Will Boyd</a> and can be previewed on <a href='@preview-page'>this page</a>.", array(
+      '@developer' => 'https://github.com/lonekorean/gist-syntax-themes',
+      '@preview-page' => 'https://lonekorean.github.io/gist-syntax-themes/',
+    )),
+  );
+
+  return system_settings_form($form);
 }
 
 /**
  * Settings callback for gist_filter.
  */
-function gist_filter_gist_filter_settings($form, $form_state, $filter, $format, $defaults) {
+function gist_filter_gist_filter_settings($form, $form_state, $filter, $format) {
   $settings['gist_filter_display_method'] = array(
-    '#title' => t('Gist display method'),
+    '#title' => t('Gist default display method'),
     '#type' => 'select',
     '#options' => array(
       'code' => t('Code tags'),
@@ -69,8 +202,35 @@ function gist_filter_gist_filter_settings($form, $form_state, $filter, $format, 
  */
 function gist_filter_filter_tips($filter, $format, $long = FALSE) {
   $display = $filter->settings['gist_filter_display_method'];
-  $action = $display == 'embed' ? t('embed the gist') : t('create a link to the gist');
-  return t('Use [gist:####] where #### is your gist number to %action.', array('%action' => $action));
+  // Define the tip for each display method override.
+  $tip_link = t('Use [gistlink:####] where #### is your gist number to create a link to the gist.');
+  $tip_embed = t('Use [gistembed:####] where #### is your gist number to embed the gist.');
+  $tip_code = t('Use [gistcode:####] where #### is your gist number to include the gist within code tags.');
+  // Define the action text for the default display method and the override
+  // tips to include.
+  $override_tips = array();
+  switch ($display) {
+    case 'link':
+      $default_action = t('create a link to the gist');
+      $override_tips[] = $tip_embed;
+      $override_tips[] = $tip_code;
+      break;
+    case 'embed':
+      $default_action = t('embed the gist');
+      $override_tips[] = $tip_link;
+      $override_tips[] = $tip_code;
+      break;
+    case 'code':
+      $default_action = t('include the gist within code tags');
+      $override_tips[] = $tip_link;
+      $override_tips[] = $tip_embed;
+      break;
+  }
+  // Define the tip for the default display method.
+  $default_tip = array(t('Use [gist:####] where #### is your gist number to %action.</br>To add a specific file use [gist:123abc456def7890:myfile.sh] or the
+  equivalent from the examples below.', array('%action' => $default_action)));
+  $tips = array_merge($default_tip, $override_tips);
+  return implode('</br>', $tips);
 }
 
 /**
@@ -78,8 +238,7 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
  */
 function theme_gist_filter_code($vars) {
   $file = $vars['file'];
-
-  return '<div class="drupal-gist-file"><pre type="' . drupal_strtolower($file['language']) . '">' . check_plain($file['content']) . '</pre></div>';
+  return '<div class="backdrop-gist-file"><pre type="' . backdrop_strtolower($file['language']) . '">' . check_plain($file['content']) . '</pre></div>';
 }
 
 /**
@@ -88,7 +247,6 @@ function theme_gist_filter_code($vars) {
 function _gist_display_code($matches) {
   // Get the Gist from the Github API.
   $data = gist_filter_get_gist($matches[1]);
-
   $output = '';
 
   // If a file was specified, just render that one file.
@@ -99,13 +257,22 @@ function _gist_display_code($matches) {
   }
   // Otherwise, render all files.
   else {
-    foreach ($data['files'] as $file) {
-      $output .= theme('gist_filter_code', array(
-        'file' => $file,
-      ));
+    if (isset($data['files'])) {
+      foreach ($data['files'] as $file) {
+        $output .= theme('gist_filter_code', array(
+          'file' => $file,
+        ));
+      }
+    }
+    else {
+      // There may be a message here.
+      watchdog('gist_filter', 'Possible error retrieving gist %gist_id: "%json"', array(
+        '%gist_id' => $matches[1],
+        // phpcs:ignore
+        '%json' => print_r($data, TRUE),
+      ), WATCHDOG_ERROR);
     }
   }
-
   return $output;
 }
 
@@ -113,12 +280,32 @@ function _gist_display_code($matches) {
  * Replace the text with embedded script.
  */
 function _gist_display_embed($matches) {
-  $gist_url = 'http://gist.github.com/' . $matches[1];
+  // Get the embed theme setting.
+  $theme = config_get('gist_filter.settings', 'gist_embed_theme');
+
+  // Make the url agnostic to the scheme so gist will embed on http and https.
+  $gist_url = '//gist.github.com/' . $matches[1];
   $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '.js?file=' . $matches[2] : $gist_url . '.js';
 
-  // Also grab the content and display it in code tags (in case the user does not have JS).
+  // Also grab the content and display it in code tags (in case the user does
+  // not have Javascript).
   $output = '<noscript>' . _gist_display_code($matches) . '</noscript>';
 
+  // If the theme is not default then use javascript to add the CSS.
+  if ($theme != 'default') {
+    $theme_url = "https://cdn.rawgit.com/lonekorean/gist-syntax-themes/d49b91b3/stylesheets/$theme.css";
+    $theme_script = "<script>";
+    $theme_script .= "var head = document.getElementsByTagName('HEAD')[0];";
+    $theme_script .= "var link = document.createElement('link');";
+    $theme_script .= "link.rel = 'stylesheet';";
+    $theme_script .= "link.type = 'text/css';";
+    $theme_script .= "link.href = '$theme_url';";
+    $theme_script .= "head.appendChild(link);";
+    $theme_script .= "</script>";
+    $output .= $theme_script;
+  }
+
+  // Output the script with URL.
   $output .= '<script src="' . $gist_url . '"></script>';
   return $output;
 }
@@ -127,15 +314,15 @@ function _gist_display_embed($matches) {
  * Replace the text with a link.
  */
 function _gist_display_link($matches) {
-  $gist_url = 'http://gist.github.com/' . $matches[1];
-  $gist_url = isset($matches[2]) && !empty($matches[2])? $gist_url . '#file_' . $matches[2] : $gist_url;
+  $gist_url = 'https://gist.github.com/' . $matches[1];
+  $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '#file_' . $matches[2] : $gist_url;
   return l($gist_url, $gist_url);
 }
 
 /**
  * Helper function to retrieve a Gist from the Github API.
  *
- * @param $id
+ * @param string $id
  *   The ID of the Gist to grab.
  *
  * @return array
@@ -146,26 +333,35 @@ function gist_filter_get_gist($id) {
 
   // First, try the static cache.
   if (!isset($gists[$id])) {
-    // Cache ID
+    // Compile the gist cache ID.
     $cid = 'gist_filter:gist:' . $id;
-    // Check if this gist is already in the cache
+    // Check if this gist is already in the cache.
     $gist = cache_get($cid);
-
     if ($cached = cache_get($cid)) {
       $gist = $cached->data;
     }
     else {
-      // Not available in the cache, so retrive the gist from Github
+      // Not available in the cache, so retrive the gist from Github.
+      // Define standard header.
+      $headers = array();
+      $headers['Content-Type'] = 'application/json';
+      // Include the GitHub Personal Access token if it is set.
+      $token = config_get('gist_filter.settings', 'github_token');
+      if (!empty($token)) {
+        $headers['Authorization'] = 'token ' . $token;
+      }
+      $options = array();
+      $options['headers'] = $headers;
+      // Compile and submit the request.
       $url = 'https://api.github.com/gists/' . $id;
-      $response = drupal_http_request($url, array('headers' => array('Content-Type' => 'application/json')));
-      $gist = drupal_json_decode($response->data);
+      $response = backdrop_http_request($url, $options);
+      $gist = backdrop_json_decode($response->data);
 
-      // Cache the gist until the next cache flush
+      // Cache the gist until the next cache flush.
       cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
     }
-
+    // Return the cached or retrieved gist.
     $gists[$id] = $gist;
   }
-
   return $gists[$id];
 }
