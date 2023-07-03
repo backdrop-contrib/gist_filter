@@ -18,7 +18,6 @@ Gist Filter allows gists from Github to be embedded anywhere in the text using
 a token format to embed as either a link, a 'code' block or embedded using one
 of a range of themes.
 
-
 Installation
 ------------
 <!--
@@ -29,6 +28,11 @@ necessary.
 - Install this module using the official Backdrop CMS instructions at
   https://docs.backdropcms.org/documentation/extend-with-modules.
 - Enable the Gist Filter in each text format where you want to use it.
+- In the order of filters (weight) within each text format you use it, Gist
+Filter must come BEFORE
+[Token Filter](https://backdropcms.org/project/token_filter) and AFTER 'Limit
+allowed HTML tags'. The module will attempt to set this but double check this
+if you run into problems.
 
 Usage
 -------------
@@ -47,13 +51,15 @@ following patterns:
 - `[gistlink:123abc456def7890]` - embed the gist as a link.
 - `[gistembed:123abc456def7890]` - embed the gist using a script.
 The gist ID is the string after the gist owner. For the examples above the gist
-URL would be `https://gist.github.com/yorkshire-pudding/123abc456def7890`.
+URL might be `https://gist.github.com/yorkshire-pudding/123abc456def7890`.
 3. To add a specific file use `[gist:123abc456def7890:myfile.sh]` or the
 equivalent with a `gistcode`, `gistlink` or `gistembed` prefix.
 4. Go to `/admin/config/content/gist-filter` where you can select a theme for
 the embed display (you will need to clear the page cache to apply a change
 here), and also add a GitHub Personal Access token to give your site a higher
 limit for retrieving gists.
+5. Clearing the 'Page and else' cache may be necessary to see the effects of a
+change.
 
 Issues
 ------

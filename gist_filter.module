@@ -9,6 +9,35 @@
  * the gist itself.
  */
 
+/**
+ * Implements hook_filter_info().
+ */
+function gist_filter_filter_info() {
+  $filters['gist_filter'] = array(
+    'title' => t('Gist filter (Github Gists)'),
+    'description' => t('Substitutes [gist:xx] tags with the gist located at https://gist.github.com/user/xx.'),
+    'process callback' => 'gist_filter_gist_filter_process',
+    'default settings' => array(
+      'gist_filter_display_method' => 'embed',
+    ),
+    'settings callback' => 'gist_filter_gist_filter_settings',
+    'tips callback' => 'gist_filter_filter_tips',
+    'cache' => TRUE,
+    'weight' => 0,
+  );
+  return $filters;
+}
+
+/**
+ * Implements hook_filter_info_alter().
+ */
+function gist_filter_filter_info_alter(&$info) {
+  if (module_exists('token_filter')) {
+    $info['filter_tokens']['weight'] = 1;
+  }
+}
+
+
  /**
  * Implements hook_menu().
  *
@@ -16,7 +45,7 @@
 function gist_filter_menu() {
   $items = array();
   $items['admin/config/content/gist-filter'] = array(
-    'title' => 'Gist Filter settings',
+    'title' => 'Gist Filter Global settings',
     'description' => 'Enter global settings for the Gist Filter module',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('gist_filter_config_form'),
@@ -62,25 +91,7 @@ function gist_filter_theme() {
 }
 
 /**
- * Implements hook_filter_info().
- */
-function gist_filter_filter_info() {
-  $filters['gist_filter'] = array(
-    'title' => t('Gist filter (Github Gists)'),
-    'description' => t('Substitutes [gist:xx] tags with the gist located at https://gist.github.com/user/xx.'),
-    'process callback' => 'gist_filter_gist_filter_process',
-    'default settings' => array(
-      'gist_filter_display_method' => 'embed',
-    ),
-    'settings callback' => 'gist_filter_gist_filter_settings',
-    'tips callback' => 'gist_filter_filter_tips',
-    'cache' => TRUE,
-  );
-  return $filters;
-}
-
-/**
- * Process callback for hook_filter_info().
+ * Process callback for gist_filter.
  */
 function gist_filter_gist_filter_process($text, $filter, $format) {
   // Get the default display method for the text format.
@@ -110,11 +121,13 @@ function gist_filter_gist_filter_process($text, $filter, $format) {
 }
 
  /**
- * Settings callback for gist_filter_config_form
+ * Global settings page callback for gist_filter.
  */
 function gist_filter_config_form($form, &$form_state) {
   $form = array();
-  $form['#config'] = 'gist_filter.settings';
+  $config_file = 'gist_filter.settings';
+  $form['#config'] = $config_file;
+  $config = config($config_file);
 
   // Container for 'code' display settings.
   $form['code'] = array(
@@ -137,7 +150,7 @@ function gist_filter_config_form($form, &$form_state) {
   $form['code']['github_token'] = array(
     '#type' => 'textfield',
     '#title' => 'GitHub Personal Access Token',
-    '#default_value' => config_get('gist_filter.settings', 'github_token', ''),
+    '#default_value' => $config->get('github_token', ''),
     '#description' => $description,
   );
 
@@ -170,11 +183,19 @@ function gist_filter_config_form($form, &$form_state) {
     '#type' => 'select',
     '#title' => 'Gist Embed Theme',
     '#options' => $gist_themes,
-    '#default_value' => config_get('gist_filter.settings', 'gist_embed_theme'),
+    '#default_value' => $config->get('gist_embed_theme'),
     '#description' => t("Themes are from <a href='@developer'>Will Boyd</a> and can be previewed on <a href='@preview-page'>this page</a>.", array(
       '@developer' => 'https://github.com/lonekorean/gist-syntax-themes',
       '@preview-page' => 'https://lonekorean.github.io/gist-syntax-themes/',
     )),
+  );
+
+  // Allow disabling the 'noscript' display of code block to save on API calls.
+  $form['embed']['enable_noscript_display'] = array(
+    '#type' => 'checkbox',
+    '#title' => "Display 'code' version if Javascript is disabled.",
+    '#description' => t("If Javascript is disabled, then enabling this option will use 'code' display of the gist. This may cause additional calls to the GitHub API if the gist is not in the cache."),
+    '#default_value' => $config->get('enable_noscript_display'),
   );
 
   return system_settings_form($form);
@@ -198,7 +219,7 @@ function gist_filter_gist_filter_settings($form, $form_state, $filter, $format) 
 }
 
 /**
- * Implements hook_filter_tips().
+ * Filter tip callback for gist_filter.
  */
 function gist_filter_filter_tips($filter, $format, $long = FALSE) {
   $display = $filter->settings['gist_filter_display_method'];
@@ -229,6 +250,7 @@ function gist_filter_filter_tips($filter, $format, $long = FALSE) {
   // Define the tip for the default display method.
   $default_tip = array(t('Use [gist:####] where #### is your gist number to %action.</br>To add a specific file use [gist:123abc456def7890:myfile.sh] or the
   equivalent from the examples below.', array('%action' => $default_action)));
+  // Merge and return the tips.
   $tips = array_merge($default_tip, $override_tips);
   return implode('</br>', $tips);
 }
@@ -281,15 +303,17 @@ function _gist_display_code($matches) {
  */
 function _gist_display_embed($matches) {
   // Get the embed theme setting.
-  $theme = config_get('gist_filter.settings', 'gist_embed_theme');
+  $config_file = 'gist_filter.settings';
+  $config = config($config_file);
+  $theme = $config->get('gist_embed_theme');
 
   // Make the url agnostic to the scheme so gist will embed on http and https.
   $gist_url = '//gist.github.com/' . $matches[1];
   $gist_url = isset($matches[2]) && !empty($matches[2]) ? $gist_url . '.js?file=' . $matches[2] : $gist_url . '.js';
 
   // Also grab the content and display it in code tags (in case the user does
-  // not have Javascript).
-  $output = '<noscript>' . _gist_display_code($matches) . '</noscript>';
+  // not have Javascript) if enabled.
+  $output = ($config->get('enable_noscript_display')) ? '<noscript>' . _gist_display_code($matches) . '</noscript>' : '';
 
   // If the theme is not default then use javascript to add the CSS.
   if ($theme != 'default') {
@@ -341,7 +365,7 @@ function gist_filter_get_gist($id) {
       $gist = $cached->data;
     }
     else {
-      // Not available in the cache, so retrive the gist from Github.
+      // Not available in the cache, so retrieve the gist from Github.
       // Define standard header.
       $headers = array();
       $headers['Content-Type'] = 'application/json';
@@ -358,7 +382,7 @@ function gist_filter_get_gist($id) {
       $gist = backdrop_json_decode($response->data);
 
       // Cache the gist until the next cache flush.
-      cache_set($cid, $gist, 'cache', CACHE_TEMPORARY);
+      cache_set($cid, $gist, 'cache', CACHE_PERMANENT);
     }
     // Return the cached or retrieved gist.
     $gists[$id] = $gist;

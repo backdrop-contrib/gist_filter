@@ -6,5 +6,5 @@ type = module
 package = Input filters
 tags[] = Filters
 tags[] = Content
-
-files[] = gist_filter.test
+tags[] = GitHub
+tags[] = Gist
