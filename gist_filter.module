@@ -32,11 +32,13 @@ function gist_filter_filter_info() {
  * Implements hook_filter_info_alter().
  */
 function gist_filter_filter_info_alter(&$info) {
+  // If the Token Filter module is enabled we need to ensure it is processed
+  // after Gist Filter to avoid it trying to interpret the token-like structure
+  // of an embedded Gist filter.
   if (module_exists('token_filter')) {
     $info['filter_tokens']['weight'] = 1;
   }
 }
-
 
  /**
  * Implements hook_menu().
@@ -45,7 +47,7 @@ function gist_filter_filter_info_alter(&$info) {
 function gist_filter_menu() {
   $items = array();
   $items['admin/config/content/gist-filter'] = array(
-    'title' => 'Gist Filter Global settings',
+    'title' => 'Gist Filter Global Settings',
     'description' => 'Enter global settings for the Gist Filter module',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('gist_filter_config_form'),
@@ -62,7 +64,7 @@ function gist_filter_permission() {
   return array(
     'administer gist filter' => array(
       'title' => t('Administer Gist Filter global settings'),
-      'description' => t('Configure global settings for Gist Filter, like authentication token and embed theme.'),
+      'description' => t('Configure global settings for Gist Filter, such as authentication, theme and cache.'),
     ),
   );
 }
@@ -73,10 +75,57 @@ function gist_filter_permission() {
 function gist_filter_config_info() {
   return array(
     'gist_filter.settings' => array(
-      'label' => t('Gist Filter global settings'),
+      'label' => t('Gist Filter settings'),
       'group' => t('Configuration'),
     ),
   );
+}
+
+/**
+ * Implements hook_flush_caches().
+ */
+function gist_filter_flush_caches() {
+  // Only add to the list of all caches to flush if enabled in settings.
+  $clear_with_all = config_get('gist_filter.settings', 'cache_clear_with_all');
+  // Also check the database table exists.
+  if (db_table_exists('cache_gists') && $clear_with_all) {
+    return array('cache_gists');
+  }
+}
+
+/**
+ * Implements hook_admin_bar_cache_info().
+ */
+function gist_filter_admin_bar_cache_info() {
+  // Add to the list of caches in the admin menu that can be individually
+  // cleared.
+  $caches['cache_gists'] = array(
+    'title' => t('Gists'),
+    'callback' => '_cache_gists_clear',
+  );
+  return $caches;
+}
+
+/**
+ * Clear the gists cache.
+ */
+function _cache_gists_clear() {
+  // Clear all items from the gists cache.
+  cache('cache_gists')->flush();
+  // Also clear the entity_node and page caches to remove gists cached within a
+  // page.
+  cache('cache_entity_node')->flush();
+  cache('page')->flush();
+}
+
+/**
+ * Submit callback; clear gist cache.
+ *
+ * @ingroup forms
+ */
+function _cache_gists_clear_submit($form, &$form_state) {
+  _cache_gists_clear();
+  backdrop_set_message(t('Gist, page and entity_node caches cleared.'));
 }
 
 /**
@@ -129,6 +178,40 @@ function gist_filter_config_form($form, &$form_state) {
   $form['#config'] = $config_file;
   $config = config($config_file);
 
+  // Container for cache settings.
+  $cache_scenarios = array(
+    t("A gist is embedded using the <strong>code</strong> display method."),
+    t("A gist is embedded using the <strong>embed</strong> display method, and the site is set to display using the <strong>code</strong> method if Javascript is disabled."),
+  );
+  $description = array(
+    '<p>' . t("Gist Filter keeps gists saved in the cache if they haven't changed at source. Not only does this help pages with gists on to load faster, but it also reduces the risk of your site exceeding your GitHub API rate limit.") . '</p>',
+    '<p>' . t("Gists are saved in the cache in the following scenarios:") . '</p>',
+    theme('item_list', array('items' => $cache_scenarios)),
+    '<p>' . t("Once saved in the cache, a gist by default remains in the cache. If the gist is updated, the cached gist will be updated when the page cache is next cleared.") . '</p>',
+    '<p>' . t("If the setting below is enabled, then the gists cache will be cleared when running 'Flush all caches' or 'Page and else'. Otherwise, the gists cache can be cleared by selecting 'Gists' from the 'Flush all caches' submenu or using the button below.") . '</p>',
+  );
+  $description = implode('', $description);
+  $form['cache'] = array(
+    '#type' => 'details',
+    '#summary' => t('Cache'),
+    '#details' => $description,
+    '#open' => TRUE,
+  );
+
+  $form['cache']['clear'] = array(
+    '#type' => 'submit',
+    '#value' => t('Clear gists cache'),
+    '#submit' => array('_cache_gists_clear_submit'),
+  );
+
+  // Configure whether or not gist cache is cleared when flushing all caches.
+  $form['cache']['cache_clear_with_all'] = array(
+    '#type' => 'checkbox',
+    '#title' => "Clear the gist cache when flushing all caches",
+    '#description' => t("If you have a lot of gists throughout the site displayed as 'code' (or 'embed' with 'code' when Javascript is disabled) and those gists do not change regularly, then disabling the cache clear can avoid you breaching your GitHub API rate limit."),
+    '#default_value' => $config->get('cache_clear_with_all'),
+  );
+
   // Container for 'code' display settings.
   $form['code'] = array(
     '#type' => 'details',
@@ -138,8 +221,7 @@ function gist_filter_config_form($form, &$form_state) {
 
   // Prepare description for GitHub token field.
   $description = array(
-    '<p>' . t("Each time a gist is retrieved to display as 'code' (rather than 'link' or 'embed'), GitHub counts this towards your limit. Anonymous users get 60 per hour; authenticated users get 5,000 per hour and Enterprise users get 15,000 per hour.")  . '</p>',
-    '<p>' . t("If you have a lot of gists displayed as 'code', then each time the page cache expires all the gists will be retrieved at once so you could easily hit the limit without a token.")  . '</p>',
+    '<p>' . t("Each time a gist is retrieved to display as 'code', GitHub counts this towards your API rate limit. Anonymous users get 60 per hour; authenticated users get 5,000 per hour and Enterprise users get 15,000 per hour. If your number of gists is low, you probably won't need a token.")  . '</p>',
     '<p>' . t("If you don't already have a token, you will need to go to <a href='@github-tokens' target='_blank'>your GitHub tokens page</a> and create a token.", array(
       '@github-tokens' => 'https://github.com/settings/tokens',
     )) . '</p>',
@@ -183,6 +265,7 @@ function gist_filter_config_form($form, &$form_state) {
     '#type' => 'select',
     '#title' => 'Gist Embed Theme',
     '#options' => $gist_themes,
+    '#required' => TRUE,
     '#default_value' => $config->get('gist_embed_theme'),
     '#description' => t("Themes are from <a href='@developer'>Will Boyd</a> and can be previewed on <a href='@preview-page'>this page</a>.", array(
       '@developer' => 'https://github.com/lonekorean/gist-syntax-themes',
@@ -193,8 +276,8 @@ function gist_filter_config_form($form, &$form_state) {
   // Allow disabling the 'noscript' display of code block to save on API calls.
   $form['embed']['enable_noscript_display'] = array(
     '#type' => 'checkbox',
-    '#title' => "Display 'code' version if Javascript is disabled.",
-    '#description' => t("If Javascript is disabled, then enabling this option will use 'code' display of the gist. This may cause additional calls to the GitHub API if the gist is not in the cache."),
+    '#title' => "Display using 'code' method if Javascript is disabled",
+    '#description' => t("Enabling this option will include the 'code' display method of the gist to display if Javascript is disabled."),
     '#default_value' => $config->get('enable_noscript_display'),
   );
 
@@ -357,35 +440,50 @@ function gist_filter_get_gist($id) {
 
   // First, try the static cache.
   if (!isset($gists[$id])) {
+    // Not in the static cache so we will check the cache tables and if it
+    // exists, we will check to see if the source has changed. If it doesn't
+    // exist, we will download and cache it.
+    // Start preparing the request.
+    // Define standard header.
+    $headers = array();
+    $headers['Content-Type'] = 'application/json';
+
+    // Include the GitHub Personal Access token if it is set.
+    $token = config_get('gist_filter.settings', 'github_token');
+    if (!empty($token)) {
+      $headers['Authorization'] = 'token ' . $token;
+    }
+
     // Compile the gist cache ID.
     $cid = 'gist_filter:gist:' . $id;
     // Check if this gist is already in the cache.
-    $gist = cache_get($cid);
-    if ($cached = cache_get($cid)) {
+    // $gist = cache_get($cid);
+    if ($cached = cache_get($cid, 'cache_gists')) {
+      // Retrieve the gist so it can be used if the source hasn't changed.
       $gist = $cached->data;
+      // Retrieve the gist etag so we can check if the source has changed or
+      // not.
+      $gist_etag = $gist['etag'];
+      // Prepare the header for checking against the etag.
+      $headers['If-None-Match'] = "$gist_etag";
     }
-    else {
-      // Not available in the cache, so retrieve the gist from Github.
-      // Define standard header.
-      $headers = array();
-      $headers['Content-Type'] = 'application/json';
-      // Include the GitHub Personal Access token if it is set.
-      $token = config_get('gist_filter.settings', 'github_token');
-      if (!empty($token)) {
-        $headers['Authorization'] = 'token ' . $token;
-      }
-      $options = array();
-      $options['headers'] = $headers;
-      // Compile and submit the request.
-      $url = 'https://api.github.com/gists/' . $id;
-      $response = backdrop_http_request($url, $options);
-      $gist = backdrop_json_decode($response->data);
 
-      // Cache the gist until the next cache flush.
-      cache_set($cid, $gist, 'cache', CACHE_PERMANENT);
+    // Finalise the request.
+    $options = array();
+    $options['headers'] = $headers;
+    // Compile and submit the request.
+    $url = 'https://api.github.com/gists/' . $id;
+    $response = backdrop_http_request($url, $options);
+
+    // Process the response.
+    if ($response->code == "200") {
+      $gist = backdrop_json_decode($response->data);
+      $gist['etag'] = $response->headers['etag'];
+      // Cache the gist.
+      cache_set($cid, $gist, 'cache_gists', CACHE_PERMANENT);
     }
-    // Return the cached or retrieved gist.
-    $gists[$id] = $gist;
   }
+  // Return the cached or retrieved gist.
+  $gists[$id] = $gist;
   return $gists[$id];
 }

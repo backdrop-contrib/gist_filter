@@ -51,12 +51,12 @@ class GistFilterTestCase extends BackdropWebTestCase {
     $langcode = LANGUAGE_NONE;
     $edit = array(
       "title" => $this->randomName(),
-      "body[$langcode][0][value]" => 'Hello! [gist:865412]',
+      "body[$langcode][0][value]" => 'Hello! [gist:6d453c053fd8677cb1f40ad1786efdac]',
     );
     $this->backdropPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
     $this->assertRaw("Hello! ");
-    $this->assertRaw('<script src="//gist.github.com/865412.js"></script>');
+    $this->assertRaw('<script src="//gist.github.com/6d453c053fd8677cb1f40ad1786efdac.js"></script>');
   }
 
   /**
@@ -82,12 +82,12 @@ class GistFilterTestCase extends BackdropWebTestCase {
     $langcode = LANGUAGE_NONE;
     $edit = array(
       "title" => $this->randomName(),
-      "body[$langcode][0][value]" => 'Hello! [gist:865412:php_file.php]',
+      "body[$langcode][0][value]" => 'Hello! [gist:6d453c053fd8677cb1f40ad1786efdac:php_file.php]',
     );
     $result = $this->backdropPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
     $this->assertRaw("Hello! ");
-    $this->assertRaw('<script src="//gist.github.com/865412.js?file=php_file.php"></script>');
+    $this->assertRaw('<script src="//gist.github.com/6d453c053fd8677cb1f40ad1786efdac.js?file=php_file.php"></script>');
   }
 
   /**
@@ -114,11 +114,11 @@ class GistFilterTestCase extends BackdropWebTestCase {
     $langcode = LANGUAGE_NONE;
     $edit = array(
       "title" => $this->randomName(),
-      "body[$langcode][0][value]" => 'Hello! [gist:865412]',
+      "body[$langcode][0][value]" => 'Hello! [gist:6d453c053fd8677cb1f40ad1786efdac]',
     );
     $result = $this->backdropPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
-    $this->assertRaw('Hello! <a href="https://gist.github.com/865412">https://gist.github.com/865412</a>');
+    $this->assertRaw('Hello! <a href="https://gist.github.com/6d453c053fd8677cb1f40ad1786efdac">https://gist.github.com/6d453c053fd8677cb1f40ad1786efdac</a>');
 
   }
 
@@ -145,11 +145,11 @@ class GistFilterTestCase extends BackdropWebTestCase {
     $langcode = LANGUAGE_NONE;
     $edit = array(
       "title" => $this->randomName(),
-      "body[$langcode][0][value]" => 'Hello! [gist:865412:php_file.php]',
+      "body[$langcode][0][value]" => 'Hello! [gist:6d453c053fd8677cb1f40ad1786efdac:php_file.php]',
     );
     $result = $this->backdropPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
-    $this->assertRaw('Hello! <a href="https://gist.github.com/865412#file_php_file.php">https://gist.github.com/865412#file_php_file.php</a>');
+    $this->assertRaw('Hello! <a href="https://gist.github.com/6d453c053fd8677cb1f40ad1786efdac#file_php_file.php">https://gist.github.com/6d453c053fd8677cb1f40ad1786efdac#file_php_file.php</a>');
 
   }
 
@@ -176,7 +176,7 @@ class GistFilterTestCase extends BackdropWebTestCase {
     $langcode = LANGUAGE_NONE;
     $edit = array(
       "title" => $this->randomName(),
-      "body[$langcode][0][value]" => 'Hello! [gist:865412]',
+      "body[$langcode][0][value]" => 'Hello! [gist:6d453c053fd8677cb1f40ad1786efdac]',
     );
     $result = $this->backdropPost('node/add/' . $this->contentType->type, $edit, t('Save'));
     $this->assertResponse(200);
@@ -190,13 +190,13 @@ class GistFilterTestCase extends BackdropWebTestCase {
    */
   public function testGistCachingTest() {
     // Make sure our cache is all cleared first.
-    cache_clear_all('gist_filter:gist', 'cache', TRUE);
-    $this->assertFalse(cache_get('gist_filter:gist:865412'));
+    cache('cache_gists')->flush();
+    $this->assertFalse(cache_get('gist_filter:gist:6d453c053fd8677cb1f40ad1786efdac', 'cache_gists'));
 
-    gist_filter_get_gist(865412);
+    gist_filter_get_gist('6d453c053fd8677cb1f40ad1786efdac');
 
     // Now the cache should be set.
-    $cached = cache_get('gist_filter:gist:865412');
+    $cached = cache_get('gist_filter:gist:6d453c053fd8677cb1f40ad1786efdac', 'cache_gists');
     $this->assertTrue($cached->data);
   }
 }

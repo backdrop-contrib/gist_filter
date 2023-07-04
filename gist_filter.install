@@ -1,0 +1,15 @@
+<?php
+/**
+ * @file
+ * Install and uninstall functions for the Gist Filter module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gist_filter_schema() {
+  // Define a separate cache for gists so we have more control over when
+  // the cached gists are cleared.
+  $schema['cache_gists'] = backdrop_get_schema_unprocessed('system', 'cache');
+  return $schema;
+}

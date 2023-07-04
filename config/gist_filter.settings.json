@@ -2,5 +2,6 @@
   "_config_name": "gist_filter.settings",
   "github_token": "",
   "gist_embed_theme": "default",
-  "enable_noscript_display": 1
+  "enable_noscript_display": 1,
+  "cache_clear_with_all": 0
 }
