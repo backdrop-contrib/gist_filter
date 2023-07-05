@@ -61,6 +61,8 @@ limit for retrieving gists.
 5. Clearing the 'Page and else' cache may be necessary to see the effects of a
 change.
 
+For further information, please visit the [Wiki](https://github.com/backdrop-contrib/gist_filter/).
+
 Issues
 ------
 <!--
