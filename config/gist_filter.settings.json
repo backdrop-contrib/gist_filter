@@ -1,5 +1,6 @@
 {
   "_config_name": "gist_filter.settings",
+  "default_display_method": "embed",
   "github_token": "",
   "gist_embed_theme": "default",
   "enable_noscript_display": 1,

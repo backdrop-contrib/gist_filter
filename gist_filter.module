@@ -18,7 +18,7 @@ function gist_filter_filter_info() {
     'description' => t('Substitutes [gist:xx] tags with the gist located at https://gist.github.com/user/xx.'),
     'process callback' => 'gist_filter_gist_filter_process',
     'default settings' => array(
-      'gist_filter_display_method' => 'embed',
+      'gist_filter_display_method' => config_get('gist_filter.settings', 'default_display_method'),
     ),
     'settings callback' => 'gist_filter_gist_filter_settings',
     'tips callback' => 'gist_filter_filter_tips',
@@ -178,38 +178,26 @@ function gist_filter_config_form($form, &$form_state) {
   $form['#config'] = $config_file;
   $config = config($config_file);
 
-  // Container for cache settings.
-  $cache_scenarios = array(
-    t("A gist is embedded using the <strong>code</strong> display method."),
-    t("A gist is embedded using the <strong>embed</strong> display method, and the site is set to display using the <strong>code</strong> method if Javascript is disabled."),
-  );
-  $description = array(
-    '<p>' . t("Gist Filter keeps gists saved in the cache if they haven't changed at source. Not only does this help pages with gists on to load faster, but it also reduces the risk of your site exceeding your GitHub API rate limit.") . '</p>',
-    '<p>' . t("Gists are saved in the cache in the following scenarios:") . '</p>',
-    theme('item_list', array('items' => $cache_scenarios)),
-    '<p>' . t("Once saved in the cache, a gist by default remains in the cache. If the gist is updated, the cached gist will be updated when the page cache is next cleared.") . '</p>',
-    '<p>' . t("If the setting below is enabled, then the gists cache will be cleared when running 'Flush all caches' or 'Page and else'. Otherwise, the gists cache can be cleared by selecting 'Gists' from the 'Flush all caches' submenu or using the button below.") . '</p>',
-  );
-  $description = implode('', $description);
-  $form['cache'] = array(
+  // Container for general settings.
+  $form['general'] = array(
     '#type' => 'details',
-    '#summary' => t('Cache'),
-    '#details' => $description,
+    '#summary' => t('General'),
+    '#details' => t("Gist Filter enables you easily embed a gist anywhere in a filtered text field."),
     '#open' => TRUE,
   );
 
-  $form['cache']['clear'] = array(
-    '#type' => 'submit',
-    '#value' => t('Clear gists cache'),
-    '#submit' => array('_cache_gists_clear_submit'),
-  );
-
-  // Configure whether or not gist cache is cleared when flushing all caches.
-  $form['cache']['cache_clear_with_all'] = array(
-    '#type' => 'checkbox',
-    '#title' => "Clear the gist cache when flushing all caches",
-    '#description' => t("If you have a lot of gists throughout the site displayed as 'code' (or 'embed' with 'code' when Javascript is disabled) and those gists do not change regularly, then disabling the cache clear can avoid you breaching your GitHub API rate limit."),
-    '#default_value' => $config->get('cache_clear_with_all'),
+  // Select the default display method for new text formats.
+  $form['general']['default_display_method'] = array(
+    '#type' => 'select',
+    '#title' => 'Default Display Method',
+    '#options' => array(
+      'code' => t('Code tags'),
+      'embed' => t('Embed'),
+      'link' => t('Link'),
+    ),
+    '#required' => TRUE,
+    '#default_value' => $config->get('default_display_method'),
+    '#description' => t("You can change the default display method and this will affect any new text formats created."),
   );
 
   // Container for 'code' display settings.
@@ -279,6 +267,41 @@ function gist_filter_config_form($form, &$form_state) {
     '#title' => "Display using 'code' method if Javascript is disabled",
     '#description' => t("Enabling this option will include the 'code' display method of the gist to display if Javascript is disabled."),
     '#default_value' => $config->get('enable_noscript_display'),
+  );
+
+  // Container for cache settings.
+  $cache_scenarios = array(
+    t("A gist is embedded using the <strong>code</strong> display method."),
+    t("A gist is embedded using the <strong>embed</strong> display method, and the site is set to display using the <strong>code</strong> method if Javascript is disabled."),
+  );
+  $description = array(
+    '<p>' . t("Gist Filter keeps gists saved in the cache if they haven't changed at source. Not only does this help pages with gists on to load faster, but it also reduces the risk of your site exceeding your GitHub API rate limit.") . '</p>',
+    '<p>' . t("Gists are saved in the cache in the following scenarios:") . '</p>',
+    theme('item_list', array('items' => $cache_scenarios)),
+    '<p>' . t("Once saved in the cache, a gist by default remains in the cache. If the gist is updated, the cached gist will be updated when the page cache is next cleared.") . '</p>',
+    '<p>' . t("If the setting below is enabled, then the gists cache will be cleared when running 'Flush all caches' or 'Page and else'. Otherwise, the gists cache can be cleared by selecting 'Gists' from the 'Flush all caches' submenu or using the button below.") . '</p>',
+  );
+  $description = implode('', $description);
+  $form['cache'] = array(
+    '#type' => 'details',
+    '#summary' => t('Cache'),
+    '#details' => $description,
+    '#open' => TRUE,
+  );
+
+  $form['cache']['clear'] = array(
+    '#type' => 'submit',
+    '#value' => t('Clear gists cache'),
+    '#submit' => array('_cache_gists_clear_submit'),
+    '#description' => t("Don't forget to save any setting changes before clearing the cache."),
+  );
+
+  // Configure whether or not gist cache is cleared when flushing all caches.
+  $form['cache']['cache_clear_with_all'] = array(
+    '#type' => 'checkbox',
+    '#title' => "Clear the gist cache when flushing all caches",
+    '#description' => t("If you have a lot of gists throughout the site displayed as 'code' (or 'embed' with 'code' when Javascript is disabled) and those gists do not change regularly, then disabling the cache clear can avoid you breaching your GitHub API rate limit."),
+    '#default_value' => $config->get('cache_clear_with_all'),
   );
 
   return system_settings_form($form);
