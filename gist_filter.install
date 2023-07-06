@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Install and uninstall functions for the Gist Filter module.
+ * Install, uninstall and update functions for the Gist Filter module.
  */
 
 /**
@@ -12,4 +12,19 @@ function gist_filter_schema() {
   // the cached gists are cleared.
   $schema['cache_gists'] = backdrop_get_schema_unprocessed('system', 'cache');
   return $schema;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function gist_filter_update_1200() {
+  // We only need to add this for people upgrading from Drupal 7 who already
+  // have the module installed. This table has been in Backdrop from the start,
+  // so anyone installing new in Backdrop does not need this update.
+  if (!db_table_exists('cache_gists')) {
+    // Define a separate cache for gists so we have more control over when
+    // the cached gists are cleared.
+    $schema['cache_gists'] = backdrop_get_schema_unprocessed('system', 'cache');
+    return $schema;
+  }
 }
