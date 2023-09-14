@@ -58,7 +58,9 @@ equivalent with a `gistcode`, `gistlink` or `gistembed` prefix.
 the embed display (you will need to clear the page cache to apply a change
 here), and also add a GitHub Personal Access token to give your site a higher
 limit for retrieving gists.
-5. Clearing the 'Page and else' cache may be necessary to see the effects of a
+5. The GitHub Personal Access token, if used, is stored in config. Do not use
+this if your config is stored in a public repository.
+6. Clearing the 'Page and else' cache may be necessary to see the effects of a
 change.
 
 For further information, please visit the [Wiki](https://github.com/backdrop-contrib/gist_filter/wiki).
